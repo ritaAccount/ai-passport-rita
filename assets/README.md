@@ -26,6 +26,15 @@ Store reusable source images and generated display assets in `images/`.
 - Preserve editable sources where licensing permits, and record the source and license.
 - Never commit device QR secrets, credentials, or personal data in images.
 
+| File | Size | Notes |
+| --- | --- | --- |
+| `images/slots-jie-hero-240x320.png` | 240×320 | Angelina (JIE) splash preview from `resource/jie/jie-7.png`. |
+| `images/slots-p3-hero-240x320.png` | 240×320 | P3R splash preview from `resource/p3/p3-4.png`. |
+| `images/slots-mari-hero-240x320.png` | 240×320 | Mari splash preview from `resource/mari/`. |
+| `../main/slots_*_hero.rgb565` / `*_hero2.rgb565` / `*_hero3.rgb565` | 240×320 RGB565 | Embedded theme splash frames (3 per theme). |
+
+Conversion: resize to 240×320 → optional posterize (no dither) for soft/painted art → little-endian RGB565. Soft gradients and dither look like “snow” on ST7789; flat cel art (like P3) survives best. Full-resolution sources stay under `resource/`.
+
 ## Music and sound effects
 
 Store reusable music and sound-effect sources in `music/`.
@@ -34,3 +43,16 @@ Store reusable music and sound-effect sources in `music/`.
 - Prefer 16 kHz, 16-bit mono PCM when it matches the current BSP audio path.
 - Check Flash and internal-RAM cost before embedding audio; stream or chunk long recordings.
 - Do not commit media without redistribution permission.
+- Device playback uses PCM/ADPCM only; do not commit MP3 into `assets/` (keep originals in `resource/` if needed).
+
+| File | Format | Notes |
+| --- | --- | --- |
+| `music/slots_music_bank.bin` | SLBM + 3× IMA-ADPCM WAV @ 8 kHz mono | Full songs: jie / p3 / mari. Flashed to `music` partition at `0x35A000` (see `partitions.csv`). |
+
+Flash music separately (or after merge-bin):
+
+```bash
+esptool.py write_flash 0x35A000 assets/music/slots_music_bank.bin
+```
+
+App embeds only short SFX; BGM is mmap’d from the `music` partition and loops per theme.

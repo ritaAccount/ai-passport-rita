@@ -6,6 +6,26 @@
 
 ## Unreleased
 
+- Full-song theme BGM: add a `music` partition between cardid and Recovery, flash an ADPCM bank, and loop whole tracks; short embedded PCM clips removed. Keep JIE/MARI splash as direct RGB565 (no posterize/pixel filter). Each theme has 3 splash frames (`jie-5` / `mar-3` / `p3-2` as the new third). Splash hides OK hints; in-game CONFIG lists Bet / Vol / BGM separately with vertical scroll. Splash swaps: JIE uses `jie-7`/`jie-8`, P3 primary uses `p3-4`. In-game slots UI restyled as flashy anime pixel chrome (neon frame, ribbon tag, theme color tiles instead of portraits, themed symbol names).
+
+- Fix splash art (little-endian RGB565) with 2 switchable images per theme; splash UP/DOWN flips art then theme. Lengthen BGM to ~30 s loops at 8 kHz PCM.
+
+- Fix theme splash snow/noise (RGB565 re-encoded for ST7789 `swap_bytes`); splash UP/DOWN cycles theme, UP/DOWN double adjusts volume, OK double toggles BGM; in-game OK spins, OK double cycles bet, UP/DOWN volume, UP double returns home.
+
+- Slots themes are now JIE / P3 / MARI from `resource` art: splash UP/DOWN adjusts volume, OK double cycles theme, UP long loops that theme’s PCM BGM; in-game UI recolored per theme; old AI P5/P3 themes removed.
+
+- Slots supports P5/P3 themes: UP/DOWN switches theme on splash, UP double returns to splash in-game; P3 uses a Reload-styled blue/cyan hero and matching UI.
+
+- Slots now uses a full-screen P5-inspired hero illustration as the background; config hint remains `CONFIG (OKx2)`.
+
+- Slots UI restyled in a P5R-like red/black/white slash look; config hint is now `CONFIG (OKx2)` on the title line.
+
+- Slots bottom area is now a config panel for bet and volume (volume persisted in NVS); mascot removed from that slot.
+
+- Slots upgrade: spin/stop/win SFX, win-flash banner animation, NVS best-win record, and triple-ST free spins.
+
+- Added a slots game that boots straight into a three-reel machine (OK to spin, UP/DOWN to change bet, OK long-press to reset credits), keeping the ui_pixel theme and top-right battery SOC.
+
 - Added the supplied 80-byte CW2017 profile for the specified 520 mAh cell, including content/update-flag checks, verified writes, the required restart sequence, and bounded SOC-readiness polling.
 
 - Reorganized the documentation by function area with a dual entry point: the root `AGENTS.md` is now a thin router (hard constraints + task routing only) and the detailed AI workflow lives in `docs/development/ai-guide.md`; `agent-guide.md` was folded in. `docs/development/` gained a second level (`engineering/`, `ci/`, `release/`), and the `plays/` application archive and `experiences/` moved into a `docs/reference/` area with a dedicated README. Removed `docs/software-design/` (empty scaffold); folded the three `assets/{fonts,images,music}/README` leaves into the `assets/` README; flattened the six `project-completion` sub-documents into a single file; and unified each directory to a single README, eliminating every `INDEX` file and a duplicated experience index. All cross-references and bibliographic links were updated; no content was dropped.

@@ -29,7 +29,9 @@ lv_display_t *bsp_lvgl_init(void) {
         // 20 行单缓冲 ≈ 9.6KB;若改成 40 行双缓冲(≈37.5KB)会把 I2S 等外设的
         // DMA 描述符挤到 NO_MEM。刷新略慢但稳。
         .buffer_size   = (uint32_t)BSP_LCD_W * 20,
-        .double_buffer = false,
+        // 单缓冲 + swap_bytes 会在 flush 时原地交换像素，下一帧未覆盖区域会花屏/雪花。
+        // 双缓冲约 19KB，避免污染正在绘制的 buffer。
+        .double_buffer = true,
         .hres = BSP_LCD_W, .vres = BSP_LCD_H,
         // 旋转/镜像必须在这里配:esp_lvgl_port 注册显示时会重新下发 MADCTL,
         // 覆盖 bsp_display.c 里 esp_lcd_panel_mirror() 的设置。

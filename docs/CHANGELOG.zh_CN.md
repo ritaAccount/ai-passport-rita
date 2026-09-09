@@ -6,6 +6,26 @@
 
 ## Unreleased
 
+- 整首主题曲：在 cardid 与 Recovery 之间新增 `music` 分区，刷入 ADPCM 曲库并循环播放；短 PCM 片段已移除。JIE/MARI 主页恢复为直出 RGB565（不做色块化/像素风滤镜）。每主题主页图增至 3 张（新增 `jie-5` / `mar-3` / `p3-2`）。主页不再显示 OK 操作提示；局内 CONFIG 将 Bet / Vol / BGM 分项，内容过长可纵向滚动。立绘替换：JIE 用 `jie-7`/`jie-8`，P3 主图用 `p3-4`。局内老虎机 UI 改为二次元像素风：霓虹边框、主题角标丝带、主题色块图案（代替人物头像）、分主题符号文案。
+
+- 修复立绘显示：改回小端 RGB565；每主题 2 张可切换；主页上下先翻图再切主题。BGM 加长为约 30 秒（8 kHz PCM 循环）。
+
+- 修复主题立绘雪花屏（RGB565 按 ST7789 `swap_bytes` 重转）；主页上下切主题、上下双击调音量、OK 双击开关 BGM；局内 OK 开转、OK 双击切投注、上下调音量、上双击回主页。
+
+- 老虎机主题改为 JIE / P3 / MARI（`resource` 立绘）：主页上下调音量、OK 双击切主题、长按 UP 循环播对应 PCM 主题曲；内页按各主题色重绘；旧 AI P5/P3 主题已移除。
+
+- 老虎机支持 P5 / P3 双主题：纯背景上下切换主题，进局后 UP 双击回纯背景；P3 为蓝青结成理风立绘与配套 UI。
+
+- 老虎机全屏嵌入 P5 风立绘背景（红黑白赛璐珞构图），配置仍为 `CONFIG (OKx2)`。
+
+- 老虎机画面改为 P5R 风（红黑白斜切）；配置说明改为 `CONFIG (OKx2)` 写在标题旁。
+
+- 老虎机底部改为配置区：可切换调节赌注与音量（音量写入 NVS），去掉底部吉祥物。
+
+- 老虎机进阶：旋转/停轴/中奖音效、中奖闪烁横幅动画、NVS 记录最高单次赢分、三同 ST 触发免费旋转。
+
+- 新增老虎机玩法：开机直进三轴老虎机（OK 旋转、UP/DOWN 调注、OK 长按重置筹码），保留 ui_pixel 主题与右上角电量显示。
+
 - 加入厂家为优特利 520mAh 电芯生成的 80 字节 CW2017 profile，并实现内容与更新标志检查、写入后校验、规定的重启时序以及有上限的 SOC 就绪等待。
 
 - 按功能域整理文档并采用双入口：根目录 `AGENTS.md` 变为薄路由（只保留硬约束与任务路由），详细的 AI 开发工作流下沉到 `docs/development/ai-guide.md`，`agent-guide.md` 并入其中。为 `docs/development/` 增加二级分区（`engineering/`、`ci/`、`release/`），把 `plays/` 应用档案与 `experiences/` 移入带专属 README 的 `docs/reference/` 参考区；删除 `docs/software-design/`（空脚手架）；把 `assets/{fonts,images,music}/README` 三个叶子 README 并入 `assets/` README；把 `project-completion` 的六个子文档压平为单文件；并把每个目录统一为单一 README，消除所有 `INDEX` 文件与一处重复经验索引。所有交叉引用与文献链接已更新；未丢弃任何内容。
