@@ -20,30 +20,30 @@
 #include <stdio.h>
 #include <string.h>
 
-/* Fallback; each theme overrides via theme_style_t.sym_text */
-static const char *SYM_TEXT_FALLBACK[SLOT_SYM_COUNT] = { "CH", "LM", "BL", "ST", "7" };
-static const char *SYM_JIE[SLOT_SYM_COUNT]  = { "ORNG", "STAFF", "WING", "STAR", "777" };
-static const char *SYM_P3[SLOT_SYM_COUNT]   = { "MOON", "CARD", "SEES", "STAR", "777" };
-static const char *SYM_MARI[SLOT_SYM_COUNT] = { "CHRY", "BAR", "EVA", "UNIT", "777" };
-static const int BETS[] = { 1, 5, 10, 25 };
-#define BET_COUNT ((int)(sizeof(BETS) / sizeof(BETS[0])))
-#define PAT_TILES 20
-
-
+#define REEL_PIECES 7
 #define SAMPLE_RATE     16000
 #define BGM_SAMPLE_RATE 8000
 #define CHUNK_SAMPLES   256
-#define FREE_SPIN_AWARD 3
 #define NVS_NS        "slots"
 #define NVS_KEY_BEST  "best_win"
 #define NVS_KEY_PEAK  "peak_cr"
 #define NVS_KEY_VOL   "vol"
 #define NVS_KEY_THEME "theme"
+#define NVS_KEY_HERO  "hero"
+#define NVS_KEY_LVL   "level"
+#define NVS_KEY_LIFE  "life_won"
+#define NVS_KEY_TIER  "tier"
+#define NVS_KEY_NWIN  "pity_nw"
+#define NVS_KEY_NHI   "pity_nh"
+#define NVS_KEY_NSP   "pity_ns"
+#define NVS_KEY_NJP   "pity_nj"
 
 typedef enum {
     SLOT_IDLE = 0,
     SLOT_SPINNING,
+    SLOT_BONUS_ANIM,   /* Bonus 独立小动画页 */
     SLOT_CELEBRATE,
+    SLOT_LEVEL_UP,     /* 升级弹框 */
     SLOT_RESULT,
 } slot_phase_t;
 
@@ -65,18 +65,17 @@ typedef enum {
     SFX_NONE = 0,
     SFX_TICK,
     SFX_STOP,
-    SFX_WIN,
-    SFX_JACKPOT,
-    SFX_FREE,
+    SFX_WIN,        /* 普通中奖 */
+    SFX_JACKPOT,    /* Jackpot */
+    SFX_MEGA,       /* Mega 大奖 */
+    SFX_BONUS,      /* Bonus 入场 / Bonus 结算 */
+    SFX_LEVEL,      /* 升级横幅 */
 } sfx_t;
 
 typedef struct {
     const lv_image_dsc_t *const *heroes;
     int hero_count;
     const char *title;
-    const char *tag;
-    const char *ribbon;                 /* 二次元角标，如 EVA / ORANGE / P3R */
-    const char *const *sym_text;        /* 花哨符号文案 */
     uint32_t accent;
     uint32_t glow;                      /* 外圈霓虹 */
     uint32_t panel;
@@ -87,11 +86,11 @@ typedef struct {
     uint32_t status;
     uint32_t title_bg;
     uint32_t title_fg;
-    uint32_t pat_a;                     /* 主题色块图案 A/B（代替人物立绘） */
-    uint32_t pat_b;
     uint32_t flash_win;
     uint32_t flash_jackpot;
-    uint32_t flash_free;
+    uint32_t flash_bonus;
+    uint32_t flash_mega;
+    uint32_t flash_level;
     uint32_t sym[SLOT_SYM_COUNT];
 } theme_style_t;
 
@@ -104,9 +103,6 @@ static const theme_style_t THEMES[THEME_COUNT] = {
         .heroes = JIE_HEROES,
         .hero_count = 3,
         .title = "JIE",
-        .tag = "JIE",
-        .ribbon = "ORANGE",
-        .sym_text = SYM_JIE,
         .accent = 0xFF3B30,
         .glow = 0xFF8A65,
         .panel = 0xFFF3E0,
@@ -117,20 +113,18 @@ static const theme_style_t THEMES[THEME_COUNT] = {
         .status = 0xD32F2F,
         .title_bg = 0xE53935,
         .title_fg = 0xFFFFFF,
-        .pat_a = 0xFF7043,
-        .pat_b = 0xFFCC80,
         .flash_win = 0xE53935,
         .flash_jackpot = 0xFFD54F,
-        .flash_free = 0x4FC3F7,
-        .sym = { 0xFF7043, 0xFFD54F, 0xFFFFFF, 0x4FC3F7, 0xFF1744 },
+        .flash_bonus = 0xFF6D00,
+        .flash_mega = 0xFFD700,
+        .flash_level = 0xFFB74D, /* 琥珀，区别于中奖红/金 */
+        /* CHERRY LEMON BELL STAR DIAMOND WILD BONUS MEGA */
+        .sym = { 0xFF7043, 0xFFD54F, 0xFFFFFF, 0x4FC3F7, 0xFF1744, 0x7C4DFF, 0xFF6D00, 0xFFD700 },
     },
     [THEME_P3] = {
         .heroes = P3_HEROES,
         .hero_count = 3,
         .title = "P3R",
-        .tag = "P3",
-        .ribbon = "MOON",
-        .sym_text = SYM_P3,
         .accent = 0x00B0FF,
         .glow = 0x4FC3F7,
         .panel = 0x0B1C3A,
@@ -141,20 +135,17 @@ static const theme_style_t THEMES[THEME_COUNT] = {
         .status = 0x4FC3F7,
         .title_bg = 0x003D7A,
         .title_fg = 0xFFFFFF,
-        .pat_a = 0x1565C0,
-        .pat_b = 0x00E5FF,
         .flash_win = 0x00AEEF,
         .flash_jackpot = 0xFFFFFF,
-        .flash_free = 0xD70000,
-        .sym = { 0x4FC3F7, 0xFFFFFF, 0x82B1FF, 0xFF5252, 0x00E5FF },
+        .flash_bonus = 0xFF9100,
+        .flash_mega = 0xFFD600,
+        .flash_level = 0xFFB74D,
+        .sym = { 0x4FC3F7, 0xFFFFFF, 0x82B1FF, 0xFF5252, 0x00E5FF, 0xB388FF, 0xFF9100, 0xFFD600 },
     },
     [THEME_MARI] = {
         .heroes = MARI_HEROES,
         .hero_count = 3,
         .title = "MARI",
-        .tag = "MARI",
-        .ribbon = "EVA",
-        .sym_text = SYM_MARI,
         .accent = 0xFF2D95,
         .glow = 0xFF80AB,
         .panel = 0x2A0A1C,
@@ -165,12 +156,12 @@ static const theme_style_t THEMES[THEME_COUNT] = {
         .status = 0xFF80C0,
         .title_bg = 0xFF1493,
         .title_fg = 0xFFFFFF,
-        .pat_a = 0xC2185B,
-        .pat_b = 0xF8BBD0,
         .flash_win = 0xFF2D95,
         .flash_jackpot = 0xFFFFFF,
-        .flash_free = 0xE53935,
-        .sym = { 0xFF5252, 0xFFFFFF, 0xFF2D95, 0xCE93D8, 0xFF1744 },
+        .flash_bonus = 0xFFAB40,
+        .flash_mega = 0xFFE57F,
+        .flash_level = 0xFFB74D,
+        .sym = { 0xFF5252, 0xFFFFFF, 0xFF2D95, 0xCE93D8, 0xFF1744, 0xEA80FC, 0xFFAB40, 0xFFE57F },
     },
 };
 
@@ -181,23 +172,23 @@ static lv_obj_t *s_ui_layer;
 static lv_obj_t *s_title_shadow;
 static lv_obj_t *s_title_plate;
 static lv_obj_t *s_title_lbl;
-static lv_obj_t *s_ribbon;
-static lv_obj_t *s_ribbon_lbl;
-static lv_obj_t *s_panel_shadow;
 static lv_obj_t *s_panel_glow;
 static lv_obj_t *s_panel_outline;
 static lv_obj_t *s_panel;
-static lv_obj_t *s_reel_shadow[3];
 static lv_obj_t *s_reel_cell[3];
-static lv_obj_t *s_reel_lbl[3];
+static lv_obj_t *s_reel_icon[3];
+static lv_obj_t *s_reel_piece[3][REEL_PIECES];
 static lv_obj_t *s_status_bar;
-static lv_obj_t *s_status;
+static lv_obj_t *s_status_left;
+static lv_obj_t *s_status_right;
+static lv_obj_t *s_banner_bg;
 static lv_obj_t *s_banner;
-static lv_obj_t *s_cfg_shadow;
+static lv_obj_t *s_bonus_layer;
+static lv_obj_t *s_bonus_lbl;
 static lv_obj_t *s_cfg_panel;
-static lv_obj_t *s_cfg_label;
+static lv_obj_t *s_cfg_left;
+static lv_obj_t *s_cfg_right;
 static lv_obj_t *s_batt;
-static lv_obj_t *s_pat[PAT_TILES];
 static lv_timer_t *s_timer;
 static lv_timer_t *s_batt_timer;
 static lv_timer_t *s_vol_timer;
@@ -206,8 +197,7 @@ static slot_phase_t s_phase;
 static bool s_ui_shown;
 static theme_id_t s_theme = THEME_JIE;
 static int s_hero_idx;
-static int s_credits = 100;
-static int s_bet_idx;
+static int s_credits = 500;
 static int s_volume = 80;
 static int s_cfg_focus = CFG_BET;
 static int s_reels[3];
@@ -216,11 +206,15 @@ static int s_spin_tick;
 static int s_stop_at[3];
 static int s_last_win;
 static int s_best_win;
-static int s_peak_credits = 100;
-static int s_free_left;
+static int s_peak_credits = 500;
+static int s_lifetime_won;          /* 累计赢分，驱动升级 */
+static int s_pending_level;         /* 庆祝后要展示的新等级；0=无 */
 static int s_cele_tick;
 static bool s_cele_jackpot;
-static bool s_cele_free;
+static bool s_cele_mega;
+static bool s_cele_bonus;
+static slot_player_t s_player;
+static slot_spin_result_t s_spin_res;
 static bool s_audio_ok;
 static TaskHandle_t s_sfx_task;
 static TaskHandle_t s_bgm_task;
@@ -235,6 +229,7 @@ static void set_reel(int i, int sym);
 static void queue_sfx(sfx_t s);
 static void maybe_save_records(void);
 static void load_records(void);
+static void save_player_progress(void);
 static void apply_volume(void);
 static void apply_theme(void);
 static void save_theme(void);
@@ -245,6 +240,13 @@ static void show_volume_hint(void);
 static void toggle_bgm(void);
 static void cycle_bgm(void);
 static void show_bgm_hint(void);
+static void apply_spin_payout(void);
+static void begin_celebrate_win(void);
+static void begin_level_up(int new_lv);
+static void start_bonus_anim(void);
+static void hide_bonus_layer(void);
+static void show_banner(const char *text, uint32_t bg_color);
+static void hide_banner(void);
 
 static const theme_style_t *cur_theme(void)
 {
@@ -264,16 +266,14 @@ static lv_obj_t *ui_block(lv_obj_t *parent, int x, int y, int w, int h, uint32_t
     return obj;
 }
 
-static lv_obj_t *make_panel(lv_obj_t *parent, int x, int y, int w, int h,
-                            uint32_t fill, uint32_t border, uint32_t accent,
-                            lv_obj_t **shadow_out)
+/* 无右下偏移阴影的描边块 */
+static lv_obj_t *make_flat_panel(lv_obj_t *parent, int x, int y, int w, int h,
+                                 uint32_t fill, uint32_t border)
 {
-    lv_obj_t *shadow = ui_block(parent, x + 4, y + 5, w, h, accent);
     lv_obj_t *panel = ui_block(parent, x, y, w, h, fill);
     lv_obj_set_style_border_color(panel, lv_color_hex(border), 0);
     lv_obj_set_style_border_width(panel, 3, 0);
-    lv_obj_set_style_pad_all(panel, 4, 0);
-    if (shadow_out) *shadow_out = shadow;
+    lv_obj_set_style_pad_all(panel, 2, 0);
     return panel;
 }
 
@@ -288,16 +288,102 @@ static lv_obj_t *make_pixel_chip(lv_obj_t *parent, int x, int y, int w, int h,
     return blk;
 }
 
+static void paint_reel_sym(int reel, int sym)
+{
+    if (reel < 0 || reel >= 3 || !s_reel_icon[reel]) return;
+    const theme_style_t *t = cur_theme();
+    uint32_t c = t->sym[sym];
+    for (int p = 0; p < REEL_PIECES; p++) {
+        if (s_reel_piece[reel][p]) lv_obj_add_flag(s_reel_piece[reel][p], LV_OBJ_FLAG_HIDDEN);
+    }
+
+    /* 固定块拼出可爱像素符号；只改位置/颜色，避免转轴时频繁创建对象 */
+    #define PIECE(p, x, y, w, h, col, rad) do { \
+        lv_obj_t *_o = s_reel_piece[reel][p]; \
+        if (!_o) break; \
+        lv_obj_set_pos(_o, (x), (y)); \
+        lv_obj_set_size(_o, (w), (h)); \
+        lv_obj_set_style_bg_color(_o, lv_color_hex(col), 0); \
+        lv_obj_set_style_radius(_o, (rad), 0); \
+        lv_obj_remove_flag(_o, LV_OBJ_FLAG_HIDDEN); \
+    } while (0)
+
+    switch (sym) {
+    case SLOT_SYM_CHERRY: /* 双樱桃 */
+        PIECE(0, 18, 4, 4, 16, 0x6D4C41, 0);
+        PIECE(1, 20, 2, 14, 8, 0x66BB6A, 4);
+        PIECE(2, 2, 18, 18, 18, c, LV_RADIUS_CIRCLE);
+        PIECE(3, 18, 26, 18, 18, c, LV_RADIUS_CIRCLE);
+        PIECE(4, 6, 22, 5, 5, 0xFFFFFF, LV_RADIUS_CIRCLE);
+        PIECE(5, 22, 30, 5, 5, 0xFFFFFF, LV_RADIUS_CIRCLE);
+        break;
+    case SLOT_SYM_LEMON: /* 柠檬 */
+        PIECE(0, 4, 12, 32, 30, c, 14);
+        PIECE(1, 17, 6, 6, 10, 0x8BC34A, 3);
+        PIECE(2, 12, 20, 10, 6, 0xFFFFFF, 3);
+        break;
+    case SLOT_SYM_BELL: /* 铃铛 */
+        PIECE(0, 14, 2, 12, 8, c, 4);
+        PIECE(1, 8, 10, 24, 28, c, 6);
+        PIECE(2, 4, 34, 32, 8, c, 2);
+        PIECE(3, 16, 40, 8, 8, 0xFFD54F, LV_RADIUS_CIRCLE);
+        PIECE(4, 12, 16, 8, 6, 0xFFFFFF, 3);
+        break;
+    case SLOT_SYM_STAR: /* 星星 */
+        PIECE(0, 16, 2, 8, 48, c, 0);
+        PIECE(1, 0, 20, 40, 8, c, 0);
+        PIECE(2, 6, 10, 12, 12, c, 2);
+        PIECE(3, 22, 10, 12, 12, c, 2);
+        PIECE(4, 6, 30, 12, 12, c, 2);
+        PIECE(5, 22, 30, 12, 12, c, 2);
+        PIECE(6, 16, 20, 8, 8, 0xFFFFFF, LV_RADIUS_CIRCLE);
+        break;
+    case SLOT_SYM_DIAMOND: /* 钻石 */
+        PIECE(0, 12, 2, 16, 14, c, 2);
+        PIECE(1, 4, 14, 32, 22, c, 4);
+        PIECE(2, 12, 34, 16, 14, c, 2);
+        PIECE(3, 16, 8, 8, 8, 0xFFFFFF, LV_RADIUS_CIRCLE);
+        PIECE(4, 10, 20, 6, 6, 0xFFFFFF, LV_RADIUS_CIRCLE);
+        PIECE(5, 24, 24, 5, 5, 0xFFF59D, LV_RADIUS_CIRCLE);
+        break;
+    case SLOT_SYM_WILD: /* 扑克牌 / Wild */
+        PIECE(0, 8, 4, 24, 48, c, 4);
+        PIECE(1, 12, 8, 16, 40, 0xFFFFFF, 2);
+        PIECE(2, 16, 14, 8, 8, c, LV_RADIUS_CIRCLE);
+        PIECE(3, 16, 28, 8, 12, c, 2);
+        PIECE(4, 10, 6, 6, 6, 0xFF1744, 0);
+        PIECE(5, 24, 44, 6, 6, 0xFF1744, 0);
+        break;
+    case SLOT_SYM_BONUS: /* 礼物盒 */
+        PIECE(0, 6, 18, 28, 28, c, 4);
+        PIECE(1, 4, 14, 32, 10, 0xFFFFFF, 2);
+        PIECE(2, 16, 8, 8, 40, 0xFFF59D, 2);
+        PIECE(3, 10, 4, 20, 8, 0xFF5252, 4);
+        PIECE(4, 18, 2, 4, 6, 0xFF5252, 2);
+        break;
+    case SLOT_SYM_MEGA: /* 皇冠 */
+        PIECE(0, 4, 22, 32, 18, c, 4);
+        PIECE(1, 6, 10, 8, 16, c, 2);
+        PIECE(2, 16, 4, 8, 22, c, 2);
+        PIECE(3, 26, 10, 8, 16, c, 2);
+        PIECE(4, 8, 8, 4, 4, 0xFFFFFF, LV_RADIUS_CIRCLE);
+        PIECE(5, 18, 2, 4, 4, 0xFFFFFF, LV_RADIUS_CIRCLE);
+        PIECE(6, 28, 8, 4, 4, 0xFFFFFF, LV_RADIUS_CIRCLE);
+        break;
+    default:
+        PIECE(0, 12, 2, 16, 14, c, 2);
+        PIECE(1, 4, 14, 32, 22, c, 4);
+        PIECE(2, 12, 34, 16, 14, c, 2);
+        break;
+    }
+    #undef PIECE
+}
+
 static void set_reel(int i, int sym)
 {
     if (sym < 0 || sym >= SLOT_SYM_COUNT) sym = 0;
     s_reels[i] = sym;
-    if (s_reel_lbl[i]) {
-        const theme_style_t *t = cur_theme();
-        const char *const *txt = t->sym_text ? t->sym_text : SYM_TEXT_FALLBACK;
-        lv_label_set_text(s_reel_lbl[i], txt[sym]);
-        lv_obj_set_style_text_color(s_reel_lbl[i], lv_color_hex(t->sym[sym]), 0);
-    }
+    paint_reel_sym(i, sym);
 }
 
 static void set_cells_flash(bool on, uint32_t color)
@@ -328,17 +414,8 @@ static void apply_theme(void)
         lv_label_set_text(s_title_lbl, t->title);
         lv_obj_set_style_text_color(s_title_lbl, lv_color_hex(t->title_fg), 0);
     }
-    if (s_ribbon) {
-        lv_obj_set_style_bg_color(s_ribbon, lv_color_hex(t->accent), 0);
-        lv_obj_set_style_border_color(s_ribbon, lv_color_hex(t->border), 0);
-    }
-    if (s_ribbon_lbl) {
-        lv_label_set_text(s_ribbon_lbl, t->ribbon);
-        lv_obj_set_style_text_color(s_ribbon_lbl, lv_color_hex(0xFFFFFF), 0);
-    }
     if (s_panel_glow) lv_obj_set_style_bg_color(s_panel_glow, lv_color_hex(t->glow), 0);
     if (s_panel_outline) lv_obj_set_style_bg_color(s_panel_outline, lv_color_hex(0x000000), 0);
-    if (s_panel_shadow) lv_obj_set_style_bg_color(s_panel_shadow, lv_color_hex(t->accent), 0);
     if (s_panel) {
         lv_obj_set_style_bg_color(s_panel, lv_color_hex(t->panel), 0);
         lv_obj_set_style_border_color(s_panel, lv_color_hex(t->accent), 0);
@@ -347,26 +424,22 @@ static void apply_theme(void)
         lv_obj_set_style_bg_color(s_status_bar, lv_color_hex(t->reel), 0);
         lv_obj_set_style_border_color(s_status_bar, lv_color_hex(t->accent), 0);
     }
-    if (s_status) lv_obj_set_style_text_color(s_status, lv_color_hex(t->status), 0);
-    if (s_banner) lv_obj_set_style_text_color(s_banner, lv_color_hex(t->flash_jackpot), 0);
+    if (s_status_left) lv_obj_set_style_text_color(s_status_left, lv_color_hex(t->status), 0);
+    if (s_status_right) lv_obj_set_style_text_color(s_status_right, lv_color_hex(t->status), 0);
+    if (s_banner_bg) {
+        lv_obj_set_style_bg_color(s_banner_bg, lv_color_hex(t->flash_jackpot), 0);
+        lv_obj_set_style_border_color(s_banner_bg, lv_color_hex(t->border), 0);
+    }
+    if (s_banner) lv_obj_set_style_text_color(s_banner, lv_color_hex(0x212121), 0);
     if (s_batt) lv_obj_set_style_text_color(s_batt, lv_color_hex(t->ink), 0);
-    if (s_cfg_shadow) lv_obj_set_style_bg_color(s_cfg_shadow, lv_color_hex(t->accent), 0);
     if (s_cfg_panel) {
         lv_obj_set_style_bg_color(s_cfg_panel, lv_color_hex(t->panel), 0);
         lv_obj_set_style_border_color(s_cfg_panel, lv_color_hex(t->accent), 0);
     }
-    if (s_cfg_label) lv_obj_set_style_text_color(s_cfg_label, lv_color_hex(t->ink), 0);
+    if (s_cfg_left) lv_obj_set_style_text_color(s_cfg_left, lv_color_hex(t->ink), 0);
+    if (s_cfg_right) lv_obj_set_style_text_color(s_cfg_right, lv_color_hex(t->ink), 0);
     if (s_vol_hint) lv_obj_set_style_text_color(s_vol_hint, lv_color_hex(t->accent), 0);
-    for (int i = 0; i < PAT_TILES; i++) {
-        if (!s_pat[i]) continue;
-        lv_obj_set_style_bg_color(s_pat[i],
-                                  lv_color_hex((i & 1) ? t->pat_b : t->pat_a), 0);
-        lv_obj_set_style_border_color(s_pat[i], lv_color_hex(t->border), 0);
-    }
     for (int i = 0; i < 3; i++) {
-        if (s_reel_shadow[i]) {
-            lv_obj_set_style_bg_color(s_reel_shadow[i], lv_color_hex(0x000000), 0);
-        }
         if (s_reel_cell[i]) {
             lv_obj_set_style_bg_color(s_reel_cell[i], lv_color_hex(t->reel_hi), 0);
             lv_obj_set_style_border_color(s_reel_cell[i], lv_color_hex(t->accent), 0);
@@ -381,19 +454,21 @@ static void hide_to_splash(void)
 {
     s_ui_shown = false;
     s_phase = SLOT_IDLE;
-    if (s_banner) lv_obj_add_flag(s_banner, LV_OBJ_FLAG_HIDDEN);
+    hide_banner();
+    hide_bonus_layer();
     set_cells_flash(false, 0);
     if (s_ui_layer) lv_obj_add_flag(s_ui_layer, LV_OBJ_FLAG_HIDDEN);
 }
 
 static void cycle_theme(int dir)
 {
-    /* 主页上下：先翻同一主题立绘，翻完再切下一主题 */
+    /* 主页上下：先翻同一主题立绘，翻完再切下一主题；主题+立绘索引都写入 NVS，关机后恢复 */
     const theme_style_t *t = cur_theme();
     int next = s_hero_idx + dir;
     if (next >= 0 && next < t->hero_count) {
         s_hero_idx = next;
         apply_theme();
+        save_theme();
         return;
     }
     s_theme = (theme_id_t)((s_theme + dir + THEME_COUNT) % THEME_COUNT);
@@ -406,72 +481,66 @@ static void cycle_theme(int dir)
 
 static void refresh_status(void)
 {
-    if (!s_status) return;
-    const int bet = BETS[s_bet_idx];
-    if (s_phase == SLOT_SPINNING) {
-        if (s_free_left > 0) {
-            lv_label_set_text_fmt(s_status,
-                                  "Credits %d  FREE x%d\nSPINNING...  Best %d",
-                                  s_credits, s_free_left, s_best_win);
-        } else {
-            lv_label_set_text_fmt(s_status,
-                                  "Credits %d  Bet %d\nSPINNING...  Best %d",
-                                  s_credits, bet, s_best_win);
-        }
+    if (!s_status_left || !s_status_right) return;
+    const int bet = slot_tier_bet(s_player.tier);
+    if (s_phase == SLOT_SPINNING || s_phase == SLOT_BONUS_ANIM) {
+        lv_label_set_text_fmt(s_status_left, "Credits %d\nBet %d", s_credits, bet);
+    } else if (s_phase == SLOT_LEVEL_UP) {
+        lv_label_set_text_fmt(s_status_left, "Credits %d\nLEVEL UP!", s_credits);
     } else if (s_phase == SLOT_CELEBRATE) {
-        if (s_cele_free) {
-            lv_label_set_text_fmt(s_status, "Credits %d\nFREE SPINS +%d!",
-                                  s_credits, FREE_SPIN_AWARD);
+        if (s_cele_mega) {
+            lv_label_set_text_fmt(s_status_left, "Credits %d\nMEGA +%d!", s_credits, s_last_win);
+        } else if (s_cele_bonus) {
+            lv_label_set_text_fmt(s_status_left, "Credits %d\nBONUS +%d!", s_credits, s_last_win);
         } else if (s_cele_jackpot) {
-            lv_label_set_text_fmt(s_status, "Credits %d\nJACKPOT +%d!",
-                                  s_credits, s_last_win);
+            lv_label_set_text_fmt(s_status_left, "Credits %d\nJP +%d!", s_credits, s_last_win);
         } else {
-            lv_label_set_text_fmt(s_status, "Credits %d\nWIN +%d!",
-                                  s_credits, s_last_win);
+            lv_label_set_text_fmt(s_status_left, "Credits %d\nWIN +%d!", s_credits, s_last_win);
         }
     } else if (s_phase == SLOT_RESULT && s_last_win > 0) {
-        lv_label_set_text_fmt(s_status,
-                              "Credits %d  Bet %d\nWIN +%d   Best %d",
-                              s_credits, bet, s_last_win, s_best_win);
-    } else if (s_phase == SLOT_RESULT) {
-        lv_label_set_text_fmt(s_status,
-                              "Credits %d  Bet %d\nNo win   Best %d",
-                              s_credits, bet, s_best_win);
-    } else if (s_free_left > 0) {
-        lv_label_set_text_fmt(s_status,
-                              "Credits %d  FREE x%d\nBest win %d",
-                              s_credits, s_free_left, s_best_win);
+        lv_label_set_text_fmt(s_status_left, "Credits %d\nWIN +%d", s_credits, s_last_win);
     } else {
-        lv_label_set_text_fmt(s_status,
-                              "Credits %d  Bet %d\nBest win %d",
-                              s_credits, bet, s_best_win);
+        lv_label_set_text_fmt(s_status_left, "Credits %d\nBet %d", s_credits, bet);
     }
+    lv_label_set_text_fmt(s_status_right, "Lv %d\nBest %d", s_player.level, s_best_win);
+}
+
+static void show_banner(const char *text, uint32_t bg_color)
+{
+    if (s_banner_bg) {
+        lv_obj_set_style_bg_color(s_banner_bg, lv_color_hex(bg_color), 0);
+        lv_obj_remove_flag(s_banner_bg, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(s_banner_bg);
+    }
+    if (s_banner) {
+        lv_label_set_text(s_banner, text);
+        lv_obj_remove_flag(s_banner, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(s_banner);
+    }
+}
+
+static void hide_banner(void)
+{
+    if (s_banner_bg) lv_obj_add_flag(s_banner_bg, LV_OBJ_FLAG_HIDDEN);
+    if (s_banner) lv_obj_add_flag(s_banner, LV_OBJ_FLAG_HIDDEN);
 }
 
 static void refresh_config(void)
 {
-    if (!s_cfg_label || !s_cfg_panel) return;
+    if (!s_cfg_left || !s_cfg_right) return;
     const char *bmark = (s_cfg_focus == CFG_BET) ? ">" : " ";
     const char *vmark = (s_cfg_focus == CFG_VOL) ? ">" : " ";
     const char *gmark = (s_cfg_focus == CFG_BGM) ? ">" : " ";
-    lv_label_set_text_fmt(s_cfg_label,
-                          "CONFIG %s\n"
-                          "%s Bet %d\n"
-                          "%s Vol %d%%\n"
-                          "%s BGM %s",
-                          cur_theme()->tag,
-                          bmark, BETS[s_bet_idx],
-                          vmark, s_volume,
+    /* 两列等宽 × 两行：左 Bet/BGM，右 Vol / 空 */
+    lv_label_set_text_fmt(s_cfg_left,
+                          "%sBet %d\n"
+                          "%sBGM %s",
+                          bmark, slot_tier_bet(s_player.tier),
                           gmark, s_bgm_on ? "ON" : "OFF");
-    /* Keep focused row visible when content exceeds panel height. */
-    lv_obj_update_layout(s_cfg_panel);
-    const int line_h = 16;
-    const int title_h = 16;
-    int focus_y = title_h + (int)s_cfg_focus * line_h;
-    int view_h = (int)lv_obj_get_content_height(s_cfg_panel);
-    int target = focus_y - (view_h / 2) + (line_h / 2);
-    if (target < 0) target = 0;
-    lv_obj_scroll_to_y(s_cfg_panel, target, LV_ANIM_OFF);
+    lv_label_set_text_fmt(s_cfg_right,
+                          "%sVol %d%%\n"
+                          " ",
+                          vmark, s_volume);
 }
 
 static void apply_volume(void)
@@ -541,12 +610,19 @@ static void batt_tick(lv_timer_t *t)
 static void load_records(void)
 {
     s_best_win = 0;
-    s_peak_credits = 100;
+    s_peak_credits = 500;
     s_volume = 80;
     s_theme = THEME_JIE;
+    s_hero_idx = 0;
+    s_lifetime_won = 0;
+    memset(&s_player, 0, sizeof(s_player));
+    s_player.level = 1;
+    s_player.tier = SLOT_TIER_BRONZE;
+
     nvs_handle_t h;
     if (nvs_open(NVS_NS, NVS_READONLY, &h) != ESP_OK) return;
-    int32_t best = 0, peak = 100, vol = 80, theme = 0;
+    int32_t best = 0, peak = 500, vol = 80, theme = 0, hero = 0;
+    int32_t life = 0, tier = 0, nw = 0, nh = 0, ns = 0, nj = 0;
     if (nvs_get_i32(h, NVS_KEY_BEST, &best) == ESP_OK && best > 0) s_best_win = (int)best;
     if (nvs_get_i32(h, NVS_KEY_PEAK, &peak) == ESP_OK && peak > 0) s_peak_credits = (int)peak;
     if (nvs_get_i32(h, NVS_KEY_VOL, &vol) == ESP_OK) {
@@ -557,6 +633,37 @@ static void load_records(void)
     if (nvs_get_i32(h, NVS_KEY_THEME, &theme) == ESP_OK) {
         if (theme >= 0 && theme < THEME_COUNT) s_theme = (theme_id_t)theme;
     }
+    if (nvs_get_i32(h, NVS_KEY_HERO, &hero) == ESP_OK) s_hero_idx = (int)hero;
+    if (nvs_get_i32(h, NVS_KEY_LIFE, &life) == ESP_OK && life >= 0) s_lifetime_won = (int)life;
+    /* 等级始终由累计赢分推导，曲线调整后进度一致 */
+    s_player.level = slot_level_from_lifetime_won(s_lifetime_won);
+    if (nvs_get_i32(h, NVS_KEY_TIER, &tier) == ESP_OK
+        && tier >= 0 && tier < SLOT_TIER_COUNT
+        && slot_tier_unlocked((slot_tier_t)tier, s_player.level)) {
+        s_player.tier = (slot_tier_t)tier;
+    } else {
+        s_player.tier = slot_highest_unlocked_tier(s_player.level);
+    }
+    if (nvs_get_i32(h, NVS_KEY_NWIN, &nw) == ESP_OK) s_player.pity.no_win = (int)nw;
+    if (nvs_get_i32(h, NVS_KEY_NHI, &nh) == ESP_OK) s_player.pity.no_high = (int)nh;
+    if (nvs_get_i32(h, NVS_KEY_NSP, &ns) == ESP_OK) s_player.pity.no_special = (int)ns;
+    if (nvs_get_i32(h, NVS_KEY_NJP, &nj) == ESP_OK) s_player.pity.no_jackpot = (int)nj;
+    nvs_close(h);
+    if (s_hero_idx < 0 || s_hero_idx >= THEMES[s_theme].hero_count) s_hero_idx = 0;
+}
+
+static void save_player_progress(void)
+{
+    nvs_handle_t h;
+    if (nvs_open(NVS_NS, NVS_READWRITE, &h) != ESP_OK) return;
+    nvs_set_i32(h, NVS_KEY_LVL, (int32_t)s_player.level);
+    nvs_set_i32(h, NVS_KEY_LIFE, (int32_t)s_lifetime_won);
+    nvs_set_i32(h, NVS_KEY_TIER, (int32_t)s_player.tier);
+    nvs_set_i32(h, NVS_KEY_NWIN, (int32_t)s_player.pity.no_win);
+    nvs_set_i32(h, NVS_KEY_NHI, (int32_t)s_player.pity.no_high);
+    nvs_set_i32(h, NVS_KEY_NSP, (int32_t)s_player.pity.no_special);
+    nvs_set_i32(h, NVS_KEY_NJP, (int32_t)s_player.pity.no_jackpot);
+    nvs_commit(h);
     nvs_close(h);
 }
 
@@ -571,7 +678,10 @@ static void maybe_save_records(void)
         s_peak_credits = s_credits;
         dirty = true;
     }
-    if (!dirty) return;
+    if (!dirty) {
+        save_player_progress();
+        return;
+    }
 
     nvs_handle_t h;
     if (nvs_open(NVS_NS, NVS_READWRITE, &h) != ESP_OK) return;
@@ -579,6 +689,7 @@ static void maybe_save_records(void)
     nvs_set_i32(h, NVS_KEY_PEAK, (int32_t)s_peak_credits);
     nvs_commit(h);
     nvs_close(h);
+    save_player_progress();
 }
 
 static void save_volume(void)
@@ -595,6 +706,7 @@ static void save_theme(void)
     nvs_handle_t h;
     if (nvs_open(NVS_NS, NVS_READWRITE, &h) != ESP_OK) return;
     nvs_set_i32(h, NVS_KEY_THEME, (int32_t)s_theme);
+    nvs_set_i32(h, NVS_KEY_HERO, (int32_t)s_hero_idx);
     nvs_commit(h);
     nvs_close(h);
 }
@@ -645,19 +757,47 @@ static void sfx_task(void *arg)
             play_tone_ms(440, 50, 3500);
             break;
         case SFX_WIN:
-            play_tone_ms(660, 80, 4500);
-            play_tone_ms(880, 100, 4500);
+            /* 短上行：叮—咚 */
+            play_tone_ms(784, 70, 5000);
+            play_tone_ms(988, 90, 5500);
+            play_tone_ms(1175, 140, 6000);
             break;
         case SFX_JACKPOT:
-            play_tone_ms(523, 90, 5000);
-            play_tone_ms(659, 90, 5000);
-            play_tone_ms(784, 120, 5500);
-            play_tone_ms(1046, 160, 6000);
+            /* 明亮大三和弦爬升 */
+            play_tone_ms(523, 80, 5500);
+            play_tone_ms(659, 80, 5500);
+            play_tone_ms(784, 100, 6000);
+            play_tone_ms(1047, 180, 7000);
+            play_tone_ms(1319, 120, 6500);
             break;
-        case SFX_FREE:
-            play_tone_ms(784, 70, 4500);
-            play_tone_ms(988, 70, 4500);
-            play_tone_ms(1174, 120, 5000);
+        case SFX_MEGA:
+            /* 更长、更高亢的连击 */
+            play_tone_ms(392, 70, 5500);
+            play_tone_ms(523, 70, 5500);
+            play_tone_ms(659, 70, 6000);
+            play_tone_ms(784, 70, 6000);
+            play_tone_ms(988, 90, 6500);
+            play_tone_ms(1319, 160, 7500);
+            play_tone_ms(1568, 200, 8000);
+            break;
+        case SFX_BONUS:
+            /* 轻快跳音：神秘开箱感 */
+            play_tone_ms(880, 50, 5000);
+            play_tone_ms(0, 40, 0);
+            play_tone_ms(1109, 50, 5500);
+            play_tone_ms(0, 40, 0);
+            play_tone_ms(1320, 50, 6000);
+            play_tone_ms(0, 40, 0);
+            play_tone_ms(1760, 160, 7000);
+            break;
+        case SFX_LEVEL:
+            /* 升级：两段上升 fanfare */
+            play_tone_ms(587, 80, 5500);
+            play_tone_ms(740, 80, 5500);
+            play_tone_ms(880, 80, 6000);
+            play_tone_ms(1175, 120, 6500);
+            play_tone_ms(880, 60, 5000);
+            play_tone_ms(1175, 180, 7000);
             break;
         default:
             break;
@@ -734,43 +874,123 @@ static void cycle_bgm(void)
     toggle_bgm();
 }
 
-static void begin_celebrate(bool jackpot, bool free_trig)
+static void hide_bonus_layer(void)
+{
+    if (s_bonus_layer) lv_obj_add_flag(s_bonus_layer, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void start_bonus_anim(void)
+{
+    s_phase = SLOT_BONUS_ANIM;
+    s_cele_tick = 0;
+    if (s_bonus_layer) {
+        lv_obj_remove_flag(s_bonus_layer, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(s_bonus_layer);
+    }
+    if (s_bonus_lbl) lv_label_set_text(s_bonus_lbl, "BONUS!");
+    queue_sfx(SFX_BONUS);
+    refresh_status();
+}
+
+static void apply_spin_payout(void)
+{
+    int bet = slot_tier_bet(s_player.tier);
+    s_last_win = slot_credits_won(bet, s_spin_res.mult_x10);
+    s_credits += s_last_win;
+    if (s_last_win > 0) s_lifetime_won += s_last_win;
+
+    int new_lv = slot_level_from_lifetime_won(s_lifetime_won);
+    s_pending_level = (new_lv > s_player.level) ? new_lv : 0;
+    if (s_pending_level > 0) s_player.level = s_pending_level;
+
+    /* 等级升高后，若当前档次未解锁则钳制到最高可用 */
+    if (!slot_tier_unlocked(s_player.tier, s_player.level)) {
+        s_player.tier = slot_highest_unlocked_tier(s_player.level);
+    }
+
+    maybe_save_records();
+}
+
+static void begin_celebrate_win(void)
 {
     s_phase = SLOT_CELEBRATE;
     s_cele_tick = 0;
-    s_cele_jackpot = jackpot;
-    s_cele_free = free_trig;
-    if (s_banner) {
-        if (free_trig) lv_label_set_text(s_banner, "FREE!");
-        else if (jackpot) lv_label_set_text(s_banner, "JACKPOT");
-        else lv_label_set_text(s_banner, "WIN!");
-        lv_obj_remove_flag(s_banner, LV_OBJ_FLAG_HIDDEN);
+    s_cele_jackpot = s_spin_res.is_jackpot && !s_spin_res.is_mega;
+    s_cele_mega = s_spin_res.is_mega;
+    s_cele_bonus = s_spin_res.from_bonus;
+
+    const char *msg = "WIN!";
+    uint32_t bg = cur_theme()->flash_win;
+    if (s_cele_mega) {
+        msg = "MEGA!";
+        bg = cur_theme()->flash_mega;
+        queue_sfx(SFX_MEGA);
+    } else if (s_cele_bonus) {
+        msg = "BONUS!";
+        bg = cur_theme()->flash_bonus;
+        queue_sfx(SFX_BONUS);
+    } else if (s_cele_jackpot) {
+        msg = "JACKPOT!";
+        bg = cur_theme()->flash_jackpot;
+        queue_sfx(SFX_JACKPOT);
+    } else {
+        queue_sfx(SFX_WIN);
     }
-    if (free_trig) queue_sfx(SFX_FREE);
-    else if (jackpot) queue_sfx(SFX_JACKPOT);
-    else queue_sfx(SFX_WIN);
+    show_banner(msg, bg);
+    refresh_status();
+}
+
+static void begin_level_up(int new_lv)
+{
+    s_phase = SLOT_LEVEL_UP;
+    s_cele_tick = 0;
+    s_pending_level = 0;
+    char buf[24];
+    snprintf(buf, sizeof(buf), "LV %d!", new_lv);
+    show_banner(buf, cur_theme()->flash_level);
+    queue_sfx(SFX_LEVEL);
     refresh_status();
 }
 
 static void finish_spin(void)
 {
-    int bet = BETS[s_bet_idx];
-    int mult = slot_payout_mult(s_target[0], s_target[1], s_target[2]);
-    s_last_win = bet * mult;
-    s_credits += s_last_win;
+    /* 转轴已停在 s_target；若是 Bonus 入口则进独立动画页 */
+    if (s_spin_res.needs_bonus) {
+        start_bonus_anim();
+        return;
+    }
 
-    bool free_trig = slot_is_free_trigger(s_target[0], s_target[1], s_target[2]);
-    bool jackpot = slot_is_jackpot(s_target[0], s_target[1], s_target[2]);
-    if (free_trig) s_free_left += FREE_SPIN_AWARD;
+    apply_spin_payout();
 
-    maybe_save_records();
-
-    if (s_last_win > 0 || free_trig) {
-        begin_celebrate(jackpot, free_trig);
+    if (s_last_win > 0) {
+        begin_celebrate_win();
+    } else if (s_pending_level > 0) {
+        begin_level_up(s_pending_level);
     } else {
         s_phase = SLOT_RESULT;
-        if (s_banner) lv_obj_add_flag(s_banner, LV_OBJ_FLAG_HIDDEN);
+        hide_banner();
         set_cells_flash(false, 0);
+        refresh_status();
+    }
+}
+
+static void resolve_bonus_and_finish(void)
+{
+    hide_bonus_layer();
+    if (!slot_bonus_spin(&s_player, esp_random(), esp_random(), &s_spin_res)) {
+        s_phase = SLOT_RESULT;
+        refresh_status();
+        return;
+    }
+    for (int i = 0; i < 3; i++) {
+        s_target[i] = s_spin_res.symbols[i];
+        set_reel(i, s_target[i]);
+    }
+    apply_spin_payout();
+    if (s_last_win > 0) begin_celebrate_win();
+    else if (s_pending_level > 0) begin_level_up(s_pending_level);
+    else {
+        s_phase = SLOT_RESULT;
         refresh_status();
     }
 }
@@ -779,18 +999,38 @@ static void spin_tick(lv_timer_t *t)
 {
     (void)t;
 
-    if (s_phase == SLOT_CELEBRATE) {
+    if (s_phase == SLOT_BONUS_ANIM) {
+        s_cele_tick++;
+        /* 约 1.2s 小动画后开 Bonus 池 */
+        if (s_bonus_lbl && (s_cele_tick / 4) % 2 == 0) {
+            lv_label_set_text(s_bonus_lbl, "BONUS!");
+        } else if (s_bonus_lbl) {
+            lv_label_set_text(s_bonus_lbl, "OPEN...");
+        }
+        if (s_cele_tick >= 24) resolve_bonus_and_finish();
+        return;
+    }
+
+    if (s_phase == SLOT_CELEBRATE || s_phase == SLOT_LEVEL_UP) {
         s_cele_tick++;
         bool on = (s_cele_tick / 3) % 2 == 0;
-        uint32_t col = s_cele_jackpot ? cur_theme()->flash_jackpot
-                     : (s_cele_free ? cur_theme()->flash_free : cur_theme()->flash_win);
-        set_cells_flash(on, col);
+        uint32_t col = cur_theme()->flash_win;
+        if (s_phase == SLOT_LEVEL_UP) col = cur_theme()->flash_level;
+        else if (s_cele_mega) col = cur_theme()->flash_mega;
+        else if (s_cele_bonus) col = cur_theme()->flash_bonus;
+        else if (s_cele_jackpot) col = cur_theme()->flash_jackpot;
+        /* 只闪横幅底板，滚轴保持静止 */
+        if (s_banner_bg) {
+            lv_obj_set_style_bg_color(s_banner_bg, lv_color_hex(on ? col : 0xFFFFFF), 0);
+        }
         if (s_cele_tick >= 24) {
-            set_cells_flash(false, 0);
-            if (s_banner) lv_obj_add_flag(s_banner, LV_OBJ_FLAG_HIDDEN);
-            s_phase = SLOT_RESULT;
-            refresh_status();
-            if (s_free_left > 0) start_spin();
+            hide_banner();
+            if (s_phase == SLOT_CELEBRATE && s_pending_level > 0) {
+                begin_level_up(s_pending_level);
+            } else {
+                s_phase = SLOT_RESULT;
+                refresh_status();
+            }
         }
         return;
     }
@@ -813,50 +1053,66 @@ static void spin_tick(lv_timer_t *t)
 
 static void start_spin(void)
 {
-    if (s_phase == SLOT_SPINNING || s_phase == SLOT_CELEBRATE) return;
-    int bet = BETS[s_bet_idx];
-    bool using_free = (s_free_left > 0);
+    if (s_phase == SLOT_SPINNING || s_phase == SLOT_CELEBRATE
+        || s_phase == SLOT_BONUS_ANIM || s_phase == SLOT_LEVEL_UP) return;
 
-    if (!using_free && s_credits < bet) {
-        lv_label_set_text_fmt(s_status, "Credits %d  Bet %d\nNot enough!",
-                              s_credits, bet);
+    int bet = slot_tier_bet(s_player.tier);
+    if (!slot_tier_unlocked(s_player.tier, s_player.level)) {
+        if (s_status_left) {
+            lv_label_set_text_fmt(s_status_left, "Need Lv%d\nBet %d locked",
+                                  slot_tier_unlock_level(s_player.tier), bet);
+        }
+        if (s_status_right) {
+            lv_label_set_text_fmt(s_status_right, "Lv %d\nBest %d",
+                                  s_player.level, s_best_win);
+        }
+        s_phase = SLOT_IDLE;
+        return;
+    }
+    if (s_credits < bet) {
+        if (s_status_left) {
+            lv_label_set_text_fmt(s_status_left, "Credits %d\nNot enough!", s_credits);
+        }
+        if (s_status_right) {
+            lv_label_set_text_fmt(s_status_right, "Lv %d\nBest %d",
+                                  s_player.level, s_best_win);
+        }
         s_phase = SLOT_IDLE;
         return;
     }
 
-    if (using_free) s_free_left--;
-    else s_credits -= bet;
+    if (!slot_spin(&s_player, esp_random(), esp_random(), esp_random(), &s_spin_res)) {
+        s_phase = SLOT_IDLE;
+        return;
+    }
 
+    s_credits -= bet;
     s_last_win = 0;
+    s_pending_level = 0;
     s_spin_tick = 0;
     s_stop_at[0] = 12;
     s_stop_at[1] = 18;
     s_stop_at[2] = 24;
-
-    // 约 1/40 强制三同 ST，方便演示免费局
-    if ((esp_random() % 40) == 0) {
-        s_target[0] = s_target[1] = s_target[2] = SLOT_SYM_STAR;
-    } else {
-        for (int i = 0; i < 3; i++) s_target[i] = slot_symbol_from_rand(esp_random());
-    }
+    for (int i = 0; i < 3; i++) s_target[i] = s_spin_res.symbols[i];
 
     s_phase = SLOT_SPINNING;
-    if (s_banner) lv_obj_add_flag(s_banner, LV_OBJ_FLAG_HIDDEN);
+    hide_banner();
+    hide_bonus_layer();
     refresh_status();
 }
 
 void demo_slots_reset_credits(void)
 {
-    s_credits = 100;
-    s_bet_idx = 0;
+    s_credits = 500;
     s_phase = SLOT_IDLE;
     s_last_win = 0;
-    s_free_left = 0;
+    s_pending_level = 0;
     set_cells_flash(false, 0);
-    if (s_banner) lv_obj_add_flag(s_banner, LV_OBJ_FLAG_HIDDEN);
-    set_reel(0, SLOT_SYM_SEVEN);
-    set_reel(1, SLOT_SYM_SEVEN);
-    set_reel(2, SLOT_SYM_SEVEN);
+    hide_banner();
+    hide_bonus_layer();
+    set_reel(0, SLOT_SYM_DIAMOND);
+    set_reel(1, SLOT_SYM_DIAMOND);
+    set_reel(2, SLOT_SYM_DIAMOND);
     refresh_status();
     refresh_config();
 }
@@ -914,90 +1170,119 @@ void demo_slots_enter(void)
 
     const theme_style_t *t0 = cur_theme();
 
-    /* 标题贴纸：黑阴影 + 白描边色块 */
-    s_title_shadow = ui_block(s_ui_layer, 8, 8, 128, 28, 0x000000);
-    s_title_plate = make_pixel_chip(s_ui_layer, 4, 4, 128, 28, t0->title_bg, t0->border);
+    /* 主题标题：紧凑左上，与状态条对齐 */
+    s_title_shadow = ui_block(s_ui_layer, 8, 8, 86, 26, 0x000000);
+    s_title_plate = make_pixel_chip(s_ui_layer, 6, 6, 86, 26, t0->title_bg, t0->border);
     s_title_lbl = lv_label_create(s_title_plate);
     lv_label_set_text(s_title_lbl, t0->title);
     lv_obj_set_style_text_font(s_title_lbl, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(s_title_lbl, lv_color_hex(t0->title_fg), 0);
     lv_obj_center(s_title_lbl);
 
-    /* 主题角标丝带（EVA / ORANGE / MOON） */
-    s_ribbon = make_pixel_chip(s_ui_layer, 4, 36, 92, 20, t0->accent, t0->border);
-    s_ribbon_lbl = lv_label_create(s_ribbon);
-    lv_label_set_text(s_ribbon_lbl, t0->ribbon);
-    lv_obj_set_style_text_font(s_ribbon_lbl, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_color(s_ribbon_lbl, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_center(s_ribbon_lbl);
-
     s_batt = lv_label_create(s_ui_layer);
     lv_obj_set_style_text_font(s_batt, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(s_batt, lv_color_hex(t0->ink), 0);
-    lv_obj_align(s_batt, LV_ALIGN_TOP_RIGHT, -8, 8);
+    lv_obj_align(s_batt, LV_ALIGN_TOP_RIGHT, -8, 10);
     refresh_batt();
 
-    /* 状态条 */
-    s_status_bar = make_pixel_chip(s_ui_layer, 8, 60, 224, 30, t0->reel, t0->accent);
+    /* 状态条：左 Credits/Bet，右 Lv/Best；固定两行，禁止换行撑成三行 */
+    s_status_bar = make_pixel_chip(s_ui_layer, 8, 40, 224, 36, t0->reel, t0->accent);
     lv_obj_set_style_bg_opa(s_status_bar, LV_OPA_90, 0);
-    s_status = lv_label_create(s_status_bar);
-    lv_obj_set_width(s_status, 210);
-    lv_obj_set_style_text_font(s_status, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_color(s_status, lv_color_hex(t0->status), 0);
-    lv_obj_align(s_status, LV_ALIGN_LEFT_MID, 6, 0);
+    s_status_left = lv_label_create(s_status_bar);
+    lv_obj_set_width(s_status_left, 118);
+    lv_label_set_long_mode(s_status_left, LV_LABEL_LONG_CLIP);
+    lv_obj_set_style_text_font(s_status_left, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(s_status_left, lv_color_hex(t0->status), 0);
+    lv_obj_set_style_text_line_space(s_status_left, 0, 0);
+    lv_obj_align(s_status_left, LV_ALIGN_LEFT_MID, 6, 0);
+    s_status_right = lv_label_create(s_status_bar);
+    lv_obj_set_width(s_status_right, 90);
+    lv_label_set_long_mode(s_status_right, LV_LABEL_LONG_CLIP);
+    lv_obj_set_style_text_font(s_status_right, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(s_status_right, lv_color_hex(t0->status), 0);
+    lv_obj_set_style_text_align(s_status_right, LV_TEXT_ALIGN_RIGHT, 0);
+    lv_obj_set_style_text_line_space(s_status_right, 0, 0);
+    lv_obj_align(s_status_right, LV_ALIGN_RIGHT_MID, -6, 0);
 
-    /* 霓虹多层转轴窗：glow → black → accent 面板 */
-    s_panel_glow = ui_block(s_ui_layer, 2, 94, 236, 118, t0->glow);
-    s_panel_outline = ui_block(s_ui_layer, 6, 98, 228, 110, 0x000000);
-    s_panel = make_panel(s_ui_layer, 10, 102, 220, 102, t0->panel, t0->accent, t0->accent,
-                         &s_panel_shadow);
-    lv_obj_set_style_bg_opa(s_panel, LV_OPA_95, 0);
+    /* 转轴区：三格完全落在面板内（含阴影） */
+    s_panel_glow = ui_block(s_ui_layer, 4, 80, 232, 180, t0->glow);
+    s_panel_outline = ui_block(s_ui_layer, 8, 84, 224, 172, 0x000000);
+    s_panel = make_flat_panel(s_ui_layer, 12, 88, 216, 164, t0->panel, t0->accent);
+    lv_obj_set_style_bg_opa(s_panel, LV_OPA_90, 0);
     lv_obj_set_style_border_width(s_panel, 4, 0);
+    lv_obj_set_style_pad_all(s_panel, 0, 0);
 
-    /* 主题色块图案（代替人物头像，左右棋盘） */
-    for (int i = 0; i < PAT_TILES; i++) {
-        int col = i % 2;
-        int row = i / 2;
-        int side = (row < 5) ? 0 : 1; /* 左 10 + 右 10 */
-        int r = row % 5;
-        int x = side ? 198 : 14;
-        int y = 108 + r * 16;
-        s_pat[i] = make_pixel_chip(s_ui_layer, x + col * 12, y, 10, 10,
-                                   (i & 1) ? t0->pat_b : t0->pat_a, t0->border);
-    }
-
+    /* 面板外宽 216、边框 4×2 → 内宽 208；三格 54 + 间距 12 → 总 186，左右各 11 居中 */
+    const int reel_w = 54;
+    const int reel_gap = 12;
+    const int reel_total = 3 * reel_w + 2 * reel_gap;
+    const int reel_x0 = (216 - 8 - reel_total) / 2;
     for (int i = 0; i < 3; i++) {
-        int x = 42 + i * 56;
-        s_reel_cell[i] = make_panel(s_panel, x - 10, 12, 50, 72,
-                                    t0->reel_hi, t0->accent, 0x000000, &s_reel_shadow[i]);
-        lv_obj_set_style_border_width(s_reel_cell[i], 3, 0);
-        lv_obj_set_style_pad_all(s_reel_cell[i], 2, 0);
-        s_reel_lbl[i] = lv_label_create(s_reel_cell[i]);
-        lv_obj_set_style_text_font(s_reel_lbl[i], &lv_font_montserrat_14, 0);
-        lv_obj_set_style_text_align(s_reel_lbl[i], LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_center(s_reel_lbl[i]);
+        int x = reel_x0 + i * (reel_w + reel_gap);
+        s_reel_cell[i] = make_flat_panel(s_panel, x, 16, reel_w, 120,
+                                         t0->reel_hi, t0->accent);
+        s_reel_icon[i] = lv_obj_create(s_reel_cell[i]);
+        lv_obj_remove_flag(s_reel_icon[i], LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_size(s_reel_icon[i], 40, 56);
+        lv_obj_center(s_reel_icon[i]);
+        lv_obj_set_style_bg_opa(s_reel_icon[i], LV_OPA_TRANSP, 0);
+        lv_obj_set_style_border_width(s_reel_icon[i], 0, 0);
+        lv_obj_set_style_pad_all(s_reel_icon[i], 0, 0);
+        for (int p = 0; p < REEL_PIECES; p++) {
+            s_reel_piece[i][p] = ui_block(s_reel_icon[i], 0, 0, 4, 4, 0x000000);
+            lv_obj_add_flag(s_reel_piece[i][p], LV_OBJ_FLAG_HIDDEN);
+        }
     }
 
+    /* 中奖横幅：大色块底板 + 粗描边文字，庆祝时闪烁 */
+    s_banner_bg = make_pixel_chip(s_ui_layer, 28, 140, 184, 44, t0->flash_jackpot, t0->border);
+    lv_obj_set_style_border_width(s_banner_bg, 3, 0);
+    lv_obj_add_flag(s_banner_bg, LV_OBJ_FLAG_HIDDEN);
     s_banner = lv_label_create(s_ui_layer);
     lv_obj_set_style_text_font(s_banner, &lv_font_montserrat_20, 0);
-    lv_obj_set_style_text_color(s_banner, lv_color_hex(t0->flash_jackpot), 0);
-    lv_obj_align(s_banner, LV_ALIGN_TOP_MID, 0, 130);
+    lv_obj_set_style_text_color(s_banner, lv_color_hex(0x212121), 0);
+    lv_obj_align(s_banner, LV_ALIGN_TOP_MID, 0, 150);
     lv_label_set_text(s_banner, "");
     lv_obj_add_flag(s_banner, LV_OBJ_FLAG_HIDDEN);
 
-    s_cfg_panel = make_panel(s_ui_layer, 8, 222, 224, 78, t0->panel, t0->accent, t0->accent,
-                             &s_cfg_shadow);
-    lv_obj_set_style_bg_opa(s_cfg_panel, LV_OPA_95, 0);
+    /* Bonus 全屏小动画层 */
+    s_bonus_layer = lv_obj_create(s_ui_layer);
+    lv_obj_remove_flag(s_bonus_layer, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_pos(s_bonus_layer, 0, 0);
+    lv_obj_set_size(s_bonus_layer, 240, 320);
+    lv_obj_set_style_bg_color(s_bonus_layer, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_opa(s_bonus_layer, LV_OPA_70, 0);
+    lv_obj_set_style_border_width(s_bonus_layer, 0, 0);
+    lv_obj_set_style_pad_all(s_bonus_layer, 0, 0);
+    lv_obj_add_flag(s_bonus_layer, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_t *bonus_chip = make_pixel_chip(s_bonus_layer, 28, 120, 184, 64,
+                                           t0->flash_bonus, t0->border);
+    lv_obj_set_style_border_width(bonus_chip, 3, 0);
+    s_bonus_lbl = lv_label_create(bonus_chip);
+    lv_label_set_text(s_bonus_lbl, "BONUS!");
+    lv_obj_set_style_text_font(s_bonus_lbl, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_color(s_bonus_lbl, lv_color_hex(0x212121), 0);
+    lv_obj_center(s_bonus_lbl);
+
+    /* CONFIG：两列等宽 × 两行（左 Bet/BGM，右 Vol） */
+    s_cfg_panel = make_flat_panel(s_ui_layer, 8, 268, 224, 40, t0->panel, t0->accent);
+    lv_obj_set_style_bg_opa(s_cfg_panel, LV_OPA_90, 0);
     lv_obj_set_style_pad_all(s_cfg_panel, 4, 0);
-    lv_obj_set_scroll_dir(s_cfg_panel, LV_DIR_VER);
-    lv_obj_set_scrollbar_mode(s_cfg_panel, LV_SCROLLBAR_MODE_AUTO);
-    lv_obj_add_flag(s_cfg_panel, LV_OBJ_FLAG_SCROLLABLE);
-    s_cfg_label = lv_label_create(s_cfg_panel);
-    lv_obj_set_width(s_cfg_label, 200);
-    lv_obj_set_style_text_font(s_cfg_label, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_color(s_cfg_label, lv_color_hex(t0->ink), 0);
-    lv_obj_set_style_text_line_space(s_cfg_label, 2, 0);
-    lv_obj_align(s_cfg_label, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_obj_remove_flag(s_cfg_panel, LV_OBJ_FLAG_SCROLLABLE);
+    s_cfg_left = lv_label_create(s_cfg_panel);
+    lv_obj_set_width(s_cfg_left, 100);
+    lv_label_set_long_mode(s_cfg_left, LV_LABEL_LONG_CLIP);
+    lv_obj_set_style_text_font(s_cfg_left, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(s_cfg_left, lv_color_hex(t0->ink), 0);
+    lv_obj_set_style_text_line_space(s_cfg_left, 1, 0);
+    lv_obj_align(s_cfg_left, LV_ALIGN_LEFT_MID, 0, 0);
+    s_cfg_right = lv_label_create(s_cfg_panel);
+    lv_obj_set_width(s_cfg_right, 100);
+    lv_label_set_long_mode(s_cfg_right, LV_LABEL_LONG_CLIP);
+    lv_obj_set_style_text_font(s_cfg_right, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(s_cfg_right, lv_color_hex(t0->ink), 0);
+    lv_obj_set_style_text_line_space(s_cfg_right, 1, 0);
+    lv_obj_align(s_cfg_right, LV_ALIGN_RIGHT_MID, 0, 0);
 
     s_timer = lv_timer_create(spin_tick, 50, NULL);
     s_batt_timer = lv_timer_create(batt_tick, 5000, NULL);
@@ -1022,14 +1307,17 @@ void demo_slots_exit(void)
         s_scr = NULL;
         s_hero = s_vol_hint = s_ui_layer = NULL;
         s_title_shadow = s_title_plate = s_title_lbl = NULL;
-        s_ribbon = s_ribbon_lbl = NULL;
         s_panel_glow = s_panel_outline = NULL;
-        s_panel_shadow = s_panel = s_status_bar = s_status = s_banner = NULL;
-        s_cfg_shadow = s_cfg_panel = s_cfg_label = s_batt = NULL;
-        s_reel_lbl[0] = s_reel_lbl[1] = s_reel_lbl[2] = NULL;
-        s_reel_cell[0] = s_reel_cell[1] = s_reel_cell[2] = NULL;
-        s_reel_shadow[0] = s_reel_shadow[1] = s_reel_shadow[2] = NULL;
-        for (int i = 0; i < PAT_TILES; i++) s_pat[i] = NULL;
+        s_panel = s_status_bar = NULL;
+        s_status_left = s_status_right = NULL;
+        s_banner_bg = s_banner = s_batt = NULL;
+        s_bonus_layer = s_bonus_lbl = NULL;
+        s_cfg_panel = s_cfg_left = s_cfg_right = NULL;
+        for (int i = 0; i < 3; i++) {
+            s_reel_icon[i] = NULL;
+            s_reel_cell[i] = NULL;
+            for (int p = 0; p < REEL_PIECES; p++) s_reel_piece[i][p] = NULL;
+        }
     }
     s_phase = SLOT_IDLE;
     s_ui_shown = false;
@@ -1059,7 +1347,8 @@ void demo_slots_key(bsp_btn_t btn, bsp_btn_ev_t ev)
         return;
     }
 
-    if (s_phase == SLOT_SPINNING || s_phase == SLOT_CELEBRATE) return;
+    if (s_phase == SLOT_SPINNING || s_phase == SLOT_CELEBRATE
+        || s_phase == SLOT_BONUS_ANIM || s_phase == SLOT_LEVEL_UP) return;
 
     // 局内：上双击回主页
     if (btn == BSP_BTN_UP && ev == BSP_BTN_DOUBLE) {
@@ -1087,8 +1376,9 @@ void demo_slots_key(bsp_btn_t btn, bsp_btn_ev_t ev)
     if (btn == BSP_BTN_UP || btn == BSP_BTN_DOWN) {
         int dir = (btn == BSP_BTN_UP) ? 1 : -1;
         if (s_cfg_focus == CFG_BET) {
-            if (s_free_left > 0) return;
-            s_bet_idx = (s_bet_idx + dir + BET_COUNT) % BET_COUNT;
+            /* 上下循环全部档位下注 10/50/100/500/1000；未解锁档位开转时再拦截 */
+            s_player.tier = (slot_tier_t)((s_player.tier + dir + SLOT_TIER_COUNT) % SLOT_TIER_COUNT);
+            save_player_progress();
             refresh_status();
             refresh_config();
             return;

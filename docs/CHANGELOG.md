@@ -6,6 +6,22 @@
 
 ## Unreleased
 
+- Slots: steeper level curve (rising gaps to Lv10 / beyond); keep status bar to two lines; CONFIG as equal-width 2×2 columns; amber level-up banner; distinct celebrate SFX; centered reels; Bet cycle + banner-only flash; add player rules in `docs/lucky-triple-slot.md`.
+
+- Lucky Triple Slot: weighted pools, tier bets, pity, lifetime-won leveling; new Wild/Bonus/Mega pixel icons; Lv on status; banners for WIN/JACKPOT/MEGA/BONUS/level-up; Bonus mini page; FREE removed.
+
+- Lucky Triple Slot core logic: weighted result pools, five tiers, pity counters, and Bonus pool (`slot_logic`); in-game UI wiring pending confirmation.
+
+- Reel frame, CONFIG bar, and reel cells use flat panels without drop shadow.
+
+- Status bar left/right layout (Credits/Bet | Best); keep rightmost reel inside panel; win banner gets a flashing plate.
+
+- In-game UI: drop side color columns and EVA/ORANGE ribbon; tighten theme title and center/widen reels.
+
+- Compact in-game CONFIG to a two-line bar; replace reel text (ORNG/EVA/777) with cute pixel icons (cherry/lemon/bell/star/gem).
+
+- Persist splash hero index in NVS so power-off/power-on restores the last splash image.
+
 - Full-song theme BGM: add a `music` partition between cardid and Recovery, flash an ADPCM bank, and loop whole tracks; short embedded PCM clips removed. Keep JIE/MARI splash as direct RGB565 (no posterize/pixel filter). Each theme has 3 splash frames (`jie-5` / `mar-3` / `p3-2` as the new third). Splash hides OK hints; in-game CONFIG lists Bet / Vol / BGM separately with vertical scroll. Splash swaps: JIE uses `jie-7`/`jie-8`, P3 primary uses `p3-4`. In-game slots UI restyled as flashy anime pixel chrome (neon frame, ribbon tag, theme color tiles instead of portraits, themed symbol names).
 
 - Fix splash art (little-endian RGB565) with 2 switchable images per theme; splash UP/DOWN flips art then theme. Lengthen BGM to ~30 s loops at 8 kHz PCM.
