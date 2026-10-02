@@ -6,7 +6,7 @@
 
 ## Unreleased
 
-- Slots: steeper level curve (rising gaps to Lv10 / beyond); keep status bar to two lines; CONFIG as equal-width 2×2 columns; amber level-up banner; distinct celebrate SFX; centered reels; Bet cycle + banner-only flash; add player rules in `docs/lucky-triple-slot.md`.
+- Slots: add JIE hero4 from `jie-9`; OK long-press resets level progress; status shows Need-to-next-level; steeper level curve; UI polish; player rules doc.
 
 - Lucky Triple Slot: weighted pools, tier bets, pity, lifetime-won leveling; new Wild/Bonus/Mega pixel icons; Lv on status; banners for WIN/JACKPOT/MEGA/BONUS/level-up; Bonus mini page; FREE removed.
 

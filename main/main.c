@@ -1,4 +1,4 @@
-// main/main.c —— 开机进入老虎机（SLOTS）；OK 长按重置筹码。
+// main/main.c —— 开机进入老虎机（SLOTS）；OK 长按重置筹码与等级进度。
 #include "bsp_i2c.h"
 #include "bsp_display.h"
 #include "bsp_button.h"
@@ -19,7 +19,7 @@ static void on_key(bsp_btn_t btn, bsp_btn_ev_t ev, void *user)
     if (!bsp_lvgl_lock(500)) return;
 
     if (btn == BSP_BTN_OK && ev == BSP_BTN_LONG) {
-        demo_slots_reset_credits();
+        demo_slots_reset_progress();
     } else {
         demo_slots_key(btn, ev);
     }

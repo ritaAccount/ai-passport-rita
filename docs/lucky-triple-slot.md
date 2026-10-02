@@ -26,6 +26,7 @@ The device has three buttons: **UP**, **DOWN**, and **OK**.
 | UP / DOWN double | Volume up / down |
 | OK click | Enter the game UI |
 | OK double | Toggle BGM on the splash |
+| OK long press | Reset credits **and** level progress (lifetime, pity, bet tier, Best) |
 
 ### In game
 
@@ -40,7 +41,7 @@ While reels are spinning, or during win / Bonus / level-up banners, buttons are 
 
 ## On-screen layout
 
-- **Status (top):** left = Credits + Bet (or win line); right = Lv + Best
+- **Status (top):** left = Credits + Bet (or win line); right = Lv + remaining lifetime won needed for the next level (`Need`)
 - **Reels:** three symbol columns
 - **CONFIG (bottom, two equal columns):**
   - Left: Bet, BGM

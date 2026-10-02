@@ -21,6 +21,7 @@ idf_component_register(
     EMBED_FILES "slots_jie_hero.rgb565"
                 "slots_jie_hero2.rgb565"
                 "slots_jie_hero3.rgb565"
+                "slots_jie_hero4.rgb565"
                 "slots_p3_hero.rgb565"
                 "slots_p3_hero2.rgb565"
                 "slots_p3_hero3.rgb565"

@@ -26,6 +26,7 @@ FoloToy AI Passport 上的三轴老虎机 Demo。可以把本页发给朋友，�
 | 上 / 下 双击 | 音量 + / − |
 | OK 单击 | 进入局内界面 |
 | OK 双击 | 开关 BGM |
+| OK 长按 | 重置 Credits **以及** 等级进度（累计赢分、保底、下注档、Best） |
 
 ### 局内
 
@@ -40,7 +41,7 @@ FoloToy AI Passport 上的三轴老虎机 Demo。可以把本页发给朋友，�
 
 ## 界面说明
 
-- **状态条（上方）：** 左 = Credits + Bet（或中奖提示）；右 = Lv + Best
+- **状态条（上方）：** 左 = Credits + Bet（或中奖提示）；右 = Lv + 升到下一级还差的累计赢分（`Need`）
 - **滚轴：** 三列符号
 - **CONFIG（底部，等宽两列）：**
   - 左：Bet、BGM

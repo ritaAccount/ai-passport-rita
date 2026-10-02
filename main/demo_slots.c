@@ -94,7 +94,9 @@ typedef struct {
     uint32_t sym[SLOT_SYM_COUNT];
 } theme_style_t;
 
-static const lv_image_dsc_t *const JIE_HEROES[] = { &slots_jie_hero, &slots_jie_hero2, &slots_jie_hero3 };
+static const lv_image_dsc_t *const JIE_HEROES[] = {
+    &slots_jie_hero, &slots_jie_hero2, &slots_jie_hero3, &slots_jie_hero4,
+};
 static const lv_image_dsc_t *const P3_HEROES[] = { &slots_p3_hero, &slots_p3_hero2, &slots_p3_hero3 };
 static const lv_image_dsc_t *const MARI_HEROES[] = { &slots_mari_hero, &slots_mari_hero2, &slots_mari_hero3 };
 
@@ -479,6 +481,15 @@ static void cycle_theme(int dir)
     save_theme();
 }
 
+static void refresh_status_right(void)
+{
+    if (!s_status_right) return;
+    int next_lv = s_player.level + 1;
+    int rem = slot_lifetime_needed_for_level(next_lv) - s_lifetime_won;
+    if (rem < 0) rem = 0;
+    lv_label_set_text_fmt(s_status_right, "Lv %d\nNeed %d", s_player.level, rem);
+}
+
 static void refresh_status(void)
 {
     if (!s_status_left || !s_status_right) return;
@@ -502,7 +513,7 @@ static void refresh_status(void)
     } else {
         lv_label_set_text_fmt(s_status_left, "Credits %d\nBet %d", s_credits, bet);
     }
-    lv_label_set_text_fmt(s_status_right, "Lv %d\nBest %d", s_player.level, s_best_win);
+    refresh_status_right();
 }
 
 static void show_banner(const char *text, uint32_t bg_color)
@@ -1062,10 +1073,7 @@ static void start_spin(void)
             lv_label_set_text_fmt(s_status_left, "Need Lv%d\nBet %d locked",
                                   slot_tier_unlock_level(s_player.tier), bet);
         }
-        if (s_status_right) {
-            lv_label_set_text_fmt(s_status_right, "Lv %d\nBest %d",
-                                  s_player.level, s_best_win);
-        }
+        refresh_status_right();
         s_phase = SLOT_IDLE;
         return;
     }
@@ -1073,10 +1081,7 @@ static void start_spin(void)
         if (s_status_left) {
             lv_label_set_text_fmt(s_status_left, "Credits %d\nNot enough!", s_credits);
         }
-        if (s_status_right) {
-            lv_label_set_text_fmt(s_status_right, "Lv %d\nBest %d",
-                                  s_player.level, s_best_win);
-        }
+        refresh_status_right();
         s_phase = SLOT_IDLE;
         return;
     }
@@ -1103,6 +1108,7 @@ static void start_spin(void)
 
 void demo_slots_reset_credits(void)
 {
+    /* 进 Demo：只刷新本局筹码，保留 NVS 里的等级进度 */
     s_credits = 500;
     s_phase = SLOT_IDLE;
     s_last_win = 0;
@@ -1113,6 +1119,44 @@ void demo_slots_reset_credits(void)
     set_reel(0, SLOT_SYM_DIAMOND);
     set_reel(1, SLOT_SYM_DIAMOND);
     set_reel(2, SLOT_SYM_DIAMOND);
+    refresh_status();
+    refresh_config();
+}
+
+void demo_slots_reset_progress(void)
+{
+    /* OK 长按：重置筹码 + 等级/累计赢分/保底/档次/Best，并写入 NVS */
+    s_credits = 500;
+    s_lifetime_won = 0;
+    s_pending_level = 0;
+    s_last_win = 0;
+    s_best_win = 0;
+    s_peak_credits = 500;
+    memset(&s_player, 0, sizeof(s_player));
+    s_player.level = 1;
+    s_player.tier = SLOT_TIER_BRONZE;
+    s_phase = SLOT_IDLE;
+    set_cells_flash(false, 0);
+    hide_banner();
+    hide_bonus_layer();
+    set_reel(0, SLOT_SYM_DIAMOND);
+    set_reel(1, SLOT_SYM_DIAMOND);
+    set_reel(2, SLOT_SYM_DIAMOND);
+
+    nvs_handle_t h;
+    if (nvs_open(NVS_NS, NVS_READWRITE, &h) == ESP_OK) {
+        nvs_set_i32(h, NVS_KEY_LVL, 1);
+        nvs_set_i32(h, NVS_KEY_LIFE, 0);
+        nvs_set_i32(h, NVS_KEY_TIER, (int32_t)SLOT_TIER_BRONZE);
+        nvs_set_i32(h, NVS_KEY_NWIN, 0);
+        nvs_set_i32(h, NVS_KEY_NHI, 0);
+        nvs_set_i32(h, NVS_KEY_NSP, 0);
+        nvs_set_i32(h, NVS_KEY_NJP, 0);
+        nvs_set_i32(h, NVS_KEY_BEST, 0);
+        nvs_set_i32(h, NVS_KEY_PEAK, 500);
+        nvs_commit(h);
+        nvs_close(h);
+    }
     refresh_status();
     refresh_config();
 }
@@ -1196,7 +1240,7 @@ void demo_slots_enter(void)
     lv_obj_set_style_text_line_space(s_status_left, 0, 0);
     lv_obj_align(s_status_left, LV_ALIGN_LEFT_MID, 6, 0);
     s_status_right = lv_label_create(s_status_bar);
-    lv_obj_set_width(s_status_right, 90);
+    lv_obj_set_width(s_status_right, 98);
     lv_label_set_long_mode(s_status_right, LV_LABEL_LONG_CLIP);
     lv_obj_set_style_text_font(s_status_right, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(s_status_right, lv_color_hex(t0->status), 0);

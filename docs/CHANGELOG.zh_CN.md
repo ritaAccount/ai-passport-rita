@@ -6,7 +6,7 @@
 
 ## Unreleased
 
-- 老虎机：升级曲线加陡（级差递增至 Lv10 及以后）；状态条始终两行；CONFIG 等宽两列两行；升级横幅改为琥珀色；中奖/升级独立音效；滚轴居中；Bet 循环与横幅单独闪烁；新增玩家规则 `docs/lucky-triple-slot.zh_CN.md`。
+- 老虎机：JIE 新增第 4 张立绘（`jie-9`）；OK 长按重置等级进度；右侧显示升下一级还差的分；升级曲线加陡；界面与音效打磨；玩家规则文档。
 
 - Lucky Triple Slot：结果池权重开奖、五档下注、保底、累计赢分升级；新像素图标（Wild/Bonus/Mega）；状态条显示 Lv；中奖横幅区分 WIN/JACKPOT/MEGA/BONUS/升级；Bonus 独立小动画页；移除 FREE。
 

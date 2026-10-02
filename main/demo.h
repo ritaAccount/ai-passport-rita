@@ -35,4 +35,5 @@ void demo_low_power_key(bsp_btn_t btn, bsp_btn_ev_t ev);
 
 void demo_slots_enter(void); void demo_slots_exit(void);
 void demo_slots_key(bsp_btn_t btn, bsp_btn_ev_t ev);
-void demo_slots_reset_credits(void);
+void demo_slots_reset_credits(void);   /* 进局：只重置本局 Credits */
+void demo_slots_reset_progress(void);  /* OK 长按：重置 Credits + 等级进度 */
