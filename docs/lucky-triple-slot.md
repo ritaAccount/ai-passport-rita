@@ -116,6 +116,10 @@ Examples (not exhaustive):
 4. If Credits are too low for your Bet, lower Bet or wait for a win streak.
 5. Double-OK to move the `>` focus before changing Bet / Vol / BGM.
 
+Printable Chinese player PDF: [`lucky-triple-slot-player-guide.zh_CN.pdf`](lucky-triple-slot-player-guide.zh_CN.pdf) (source [`lucky-triple-slot-player-guide.zh_CN.html`](lucky-triple-slot-player-guide.zh_CN.html)).
+
+To swap in custom heroes and BGM: [`lucky-triple-slot-theme-customize.md`](lucky-triple-slot-theme-customize.md) (includes a copy-paste AI prompt).
+
 ## Source map
 
 | Topic | File |

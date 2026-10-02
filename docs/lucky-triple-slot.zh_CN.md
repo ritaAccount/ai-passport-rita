@@ -116,6 +116,10 @@ FoloToy AI Passport 上的三轴老虎机 Demo。可以把本页发给朋友，�
 4. Credits 不够当前 Bet 时，先把 Bet 调低。
 5. 改 Bet / Vol / BGM 前，先 OK 双击把 `>` 移到对应项。
 
+可打印的玩家手册 PDF：[`lucky-triple-slot-player-guide.zh_CN.pdf`](lucky-triple-slot-player-guide.zh_CN.pdf)（源稿 [`lucky-triple-slot-player-guide.zh_CN.html`](lucky-triple-slot-player-guide.zh_CN.html)）。
+
+想换自己的立绘和主题曲：见 [`lucky-triple-slot-theme-customize.zh_CN.md`](lucky-triple-slot-theme-customize.zh_CN.md)（含可复制提示词）。
+
 ## 代码对照
 
 | 内容 | 文件 |

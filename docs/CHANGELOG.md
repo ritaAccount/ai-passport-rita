@@ -6,7 +6,7 @@
 
 ## Unreleased
 
-- Slots: add JIE hero4 from `jie-9`; OK long-press resets level progress; status shows Need-to-next-level; steeper level curve; UI polish; player rules doc.
+- Slots: add friend-facing theme customize prompt doc; add printable Chinese player guide PDF; add JIE hero4 from `jie-9`; OK long-press resets level progress; status shows Need-to-next-level; steeper level curve; UI polish; player rules doc.
 
 - Lucky Triple Slot: weighted pools, tier bets, pity, lifetime-won leveling; new Wild/Bonus/Mega pixel icons; Lv on status; banners for WIN/JACKPOT/MEGA/BONUS/level-up; Bonus mini page; FREE removed.
 
